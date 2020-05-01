@@ -1,0 +1,77 @@
+---
+author: Kristina Macekovic
+year: 2020
+title: "Kristina Macekovic solution: Lebesgue data scientist test exercise"
+output: html_notebook
+---
+```{r}
+# Check working directory
+getwd()
+#setwd(paste(getwd(), "/Documents/jobs/jobs2020/lebesgue-test-exercise", sep=""))
+```
+# Import Initial Data
+```{r}
+facebooks_ads_dataset = read.csv("./init_data/facebook_ads.csv")
+line_items_dataset = read.csv("./init_data/line_items.csv")
+orders_dataset = read.csv("./init_data/orders.csv")
+subscriptions_dataset = read.csv("./init_data/subscriptions.csv")
+```
+
+# Datasets Summaries
+## Dataset: Facebook Ads
+### Structure
+```{r}
+str(facebooks_ads_dataset)
+# TODO: need to convert dates
+```
+
+### Summary
+```{r}
+summary(facebooks_ads_dataset)
+```
+
+This datasets seems to contain data on 483 facebook ad campaigns during 2019 and 2020. Some variables like the account id, one-click purchases contain no info.
+*TODO: Convert date to date format*
+
+## Dataset: Line items
+### Structure
+```{r}
+str(line_items_dataset)
+```
+
+### Summary
+```{r}
+summary(line_items_dataset)
+```
+
+This datasets seems to contain information on SKUs sold in a ecommerce shop that sells different types of chocolate. "Properties", "Grams", "Images" are all NULL.
+
+## Dataset: Orders
+### Structure
+```{r}
+str(orders_dataset)
+```
+
+### Summary
+```{r}
+summary(orders_dataset)
+```
+
+Holds data on orders done through the Shopify platform. *billing address* and *shipping address* are objects!
+## Dataset: Subscriptions
+### Structure
+```{r}
+str(subscriptions_dataset)
+```
+
+### Summary
+```{r}
+summary(subscriptions_dataset)
+```
+
+Holds data on subsription services. Interesting fields to look at would be 
+
+- *cancellation_reason*
+- *cancellation_reason_comment*
+
+(Something simple like a wordcloud or more advanced like NLP analysis)
