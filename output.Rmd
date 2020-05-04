@@ -161,8 +161,65 @@ sub = subset(facebook_ads_dataset, yearMonth=="2019-01")
 plot(facebook_ads_dataset$date, facebook_ads_dataset$spend)
 ```
 
+Linear trend:
+```{r}
+modelSpend = lm(spend ~ daysSinceFirst, data=facebook_ads_dataset)
+summary(modelSpend)
+
+plot(facebook_ads_dataset$daysSinceFirst, facebook_ads_dataset$spend)
+abline(modelSpend, col="red")
+```
 
 
+# Question 3: How do changes in spending affect CTR and CPM?
+Since spending has increased with time, I would expect CPM to increase in case of the same number of impressions, or constant in case of linealy increasing impressions.
+
+## Plot of CTR through time:
+```{r}
+subBefore = subset(facebook_ads_dataset, daysSinceFirst <=250)
+subAfter = subset(facebook_ads_dataset, daysSinceFirst >250)
+#plot(facebook_ads_dataset$date, scale(facebook_ads_dataset$clicks), main="Clicks")
+#plot(facebook_ads_dataset$date, scale(facebook_ads_dataset$impressions), main="Impressions")
+plot(subBefore$date, scale(subBefore$ctr), main="CTR")
+plot(subBefore$date, scale(subBefore$cpc), main="CPC")
+plot(subAfter$date, scale(subAfter$ctr), main="CTR")
+plot(subAfter$date, scale(subAfter$cpc), main="CPC")
+```
+
+## Models for CTR and CPC up to Sep:
+```{r}
+modelCTRBefore = lm(scale(ctr) ~ daysSinceFirst, data = subBefore)
+summary(modelCTRBefore)
+modelCPCBefore = lm(scale(cpc) ~ daysSinceFirst, data = subBefore)
+summary(modelCPCBefore)
+```
+
+Model:
+```{r}
+modelClicks = lm(clicks ~ daysSinceFirst, data=facebook_ads_dataset)
+summary(modelClicks)
+```
+
+
+## Plot of CPM through time:
+```{r}
+modelCPM = lm(cpm ~ daysSinceFirst, data = facebook_ads_dataset)
+summary(modelCPM)
+plot(facebook_ads_dataset$date, facebook_ads_dataset$cpm)
+boxplot(facebook_ads_dataset$cpm ~ facebook_ads_dataset$yearMonth)
+summary(facebook_ads_dataset$cpm)
+```
+
+## Impressions vs time
+```{r}
+facebook_ads_dataset$daysSinceFirst = as.numeric(facebook_ads_dataset$date - as.Date("2019-01-01"))
+
+model = lm(impressions ~ daysSinceFirst, data=facebook_ads_dataset)
+summary(model)
+
+plot(facebook_ads_dataset$daysSinceFirst, facebook_ads_dataset$impressions)
+abline(model, col="red")
+```
 
 
 ## Dataset: Line items
