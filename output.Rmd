@@ -1,17 +1,22 @@
 ---
 author: Kristina Macekovic
 year: 2020
-title: "Kristina Macekovic solution: Lebesgue data scientist test exercise"
-output: html_notebook
+title: "Lebesgue data scientist test exercise"
+output: 
+  html_notebook: 
+    fig_caption: yes
+    fig_width: 10
+    toc: yes
 ---
 ```{r}
 # Check working directory
+Sys.setlocale("LC_ALL","English")
 getwd()
 #setwd(paste(getwd(), "/Documents/jobs/jobs2020/lebesgue-test-exercise", sep=""))
 ```
 # Import Initial Data
 ```{r}
-facebooks_ads_dataset = read.csv("./init_data/facebook_ads.csv")
+facebook_ads_dataset = read.csv("./init_data/facebook_ads.csv")
 line_items_dataset = read.csv("./init_data/line_items.csv")
 orders_dataset = read.csv("./init_data/orders.csv")
 subscriptions_dataset = read.csv("./init_data/subscriptions.csv")
@@ -21,17 +26,144 @@ subscriptions_dataset = read.csv("./init_data/subscriptions.csv")
 ## Dataset: Facebook Ads
 ### Structure
 ```{r}
-str(facebooks_ads_dataset)
-# TODO: need to convert dates
+str(facebook_ads_dataset)
 ```
 
 ### Summary
 ```{r}
-summary(facebooks_ads_dataset)
+summary(facebook_ads_dataset)
 ```
 
-This datasets seems to contain data on 483 facebook ad campaigns during 2019 and 2020. Some variables like the account id, one-click purchases contain no info.
-*TODO: Convert date to date format*
+
+### Convert Dates
+```{r}
+facebook_ads_dataset$date = as.Date(facebook_ads_dataset$date, "%Y-%m-%d")
+summary(facebook_ads_dataset)
+```
+### Add month, year, day, weekday as variables
+```{r}
+facebook_ads_dataset$year = as.numeric(format(facebook_ads_dataset$date, "%Y"))
+facebook_ads_dataset$month = as.numeric(format(facebook_ads_dataset$date, "%m"))
+facebook_ads_dataset$day = as.numeric(format(facebook_ads_dataset$date, "%d"))
+facebook_ads_dataset$weekday = weekdays(facebook_ads_dataset$date)
+summary(facebook_ads_dataset)
+```
+
+# Question 1: What is the best day of the week to increase advertising spending?
+Following metrics should be as high as possible:
+```{r}
+with(facebook_ads_dataset, tapply(scale(clicks), weekday, summary))
+boxplot(scale(clicks) ~ weekday, data=facebook_ads_dataset, main="Scaled Clicks")
+abline(a=0, b=0, col="red")
+with(facebook_ads_dataset, tapply(scale(ctr), weekday, summary))
+boxplot(scale(ctr) ~ weekday, data=facebook_ads_dataset, main="Scaled CTR")
+abline(a=0, b=0, col="red")
+with(facebook_ads_dataset, tapply(scale(impressions), weekday, summary))
+boxplot(scale(impressions) ~ weekday, data=facebook_ads_dataset, main="Scaled impressions")
+abline(a=0, b=0, col="red")
+with(facebook_ads_dataset, tapply(scale(purchases), weekday, summary))
+boxplot(scale(purchases) ~ weekday, data=facebook_ads_dataset, main="Scaled Purchases")
+abline(a=0, b=0, col="red")
+with(facebook_ads_dataset, tapply(scale(purchases_conversion_value), weekday, summary))
+boxplot(scale(purchases_conversion_value) ~ weekday, data=facebook_ads_dataset, main="scaled conversion value")
+abline(a=0, b=0, col="red")
+```
+
+And following lower:
+```{r}
+with(facebook_ads_dataset, tapply(scale(cpm), weekday, summary))
+boxplot(scale(cpm) ~ weekday, data=facebook_ads_dataset, main="Scaled CPM")
+abline(a=0, b=0, col="red")
+with(facebook_ads_dataset, tapply(scale(cpc), weekday, summary))
+boxplot(scale(cpc) ~ weekday, data=facebook_ads_dataset, main="Scaled CPC")
+abline(a=0, b=0, col="red")
+with(facebook_ads_dataset, tapply(scale(spend), weekday, summary))
+boxplot(scale(spend) ~ weekday, data=facebook_ads_dataset, main="Scaled spend")
+abline(a=0, b=0, col="red")
+```
+We want to maximize this variable:
+```{r}
+ROI_max = scale((facebook_ads_dataset$clicks+
+              facebook_ads_dataset$ctr+
+              facebook_ads_dataset$impressions+
+              facebook_ads_dataset$reach+
+              facebook_ads_dataset$purchases+
+              facebook_ads_dataset$purchases_conversion_value)/facebook_ads_dataset$spend)
+ROI_min = scale(facebook_ads_dataset$cpc + 
+            facebook_ads_dataset$cpm)
+facebook_ads_dataset$ROI_max = ROI_max
+facebook_ads_dataset$ROI_min = ROI_min
+summary(facebook_ads_dataset$ROI_max)
+summary(facebook_ads_dataset$ROI_min)
+```
+ˆ
+```{r}
+boxplot(ROI_max ~ weekday, data=facebook_ads_dataset, main="ROI_max")
+abline(a=mean(facebook_ads_dataset$ROI_max), b=0, col="red")
+abline(a=median(facebook_ads_dataset$ROI_max), b=0, col="blue")
+boxplot(ROI_min ~ weekday, data=facebook_ads_dataset, main="ROI_min")
+abline(a=mean(facebook_ads_dataset$ROI_min), b=0, col="red")
+abline(a=median(facebook_ads_dataset$ROI_min), b=0, col="blue")
+```
+
+Regression:
+```{r}
+explanatory = lm(ROI_max ~ weekday, data = facebook_ads_dataset)
+summary(explanatory)
+tapply(facebook_ads_dataset$ROI_max, facebook_ads_dataset$weekday, summary)
+```
+
+
+```{r}
+explanatory_min = lm(ROI_min ~ weekday, data = facebook_ads_dataset)
+summary(explanatory_min)
+tapply(facebook_ads_dataset$ROI_min, facebook_ads_dataset$weekday, summary)
+```
+
+
+
+
+
+```{r}
+with(facebook_ads_dataset, hist(scale(clicks)))
+with(facebook_ads_dataset, hist(scale(ctr)))
+with(facebook_ads_dataset, hist(scale(impressions)))
+with(facebook_ads_dataset, hist(scale(reach)))
+```
+
+
+```{r}
+str(as.factor(facebook_ads_dataset$weekday))
+```
+
+
+```{r}
+# 1-way ANOVA
+fit = aov(ROI_max ~ factor(weekday), data=facebook_ads_dataset)
+plot(fit)
+summary(fit)
+```
+
+
+
+
+# Question 2: How did advertising spending change over time? (Is there a trend?)
+```{r}
+facebook_ads_dataset$yearMonth = format(facebook_ads_dataset$date, "%Y-%m")
+with(facebook_ads_dataset, tapply(spend, yearMonth, summary))
+with(facebook_ads_dataset, tapply(spend, yearMonth, mean))
+with(facebook_ads_dataset, tapply(spend, yearMonth, sd))
+
+boxplot(spend ~ day, data=facebook_ads_dataset, main="Spend ~ day")
+boxplot(spend ~ yearMonth, data=facebook_ads_dataset, main="Spend ~ month")
+boxplot(spend ~ year, data=facebook_ads_dataset, main="Spend ~ year")
+sub = subset(facebook_ads_dataset, yearMonth=="2019-01")
+plot(facebook_ads_dataset$date, facebook_ads_dataset$spend)
+```
+
+
+
+
 
 ## Dataset: Line items
 ### Structure
