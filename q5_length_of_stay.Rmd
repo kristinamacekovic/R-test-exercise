@@ -1,0 +1,167 @@
+---
+title: "Average length of subscription"
+author: "Kristina Maceković"
+date: "5/6/2020"
+output: html_document
+---
+# Environment Setup
+```{r, enviroment setup}
+# Check working directory
+Sys.setlocale("LC_ALL","English")
+getwd()
+#setwd(paste(getwd(), "/Documents/jobs/jobs2020/lebesgue-test-exercise", sep=""))
+```
+
+
+
+
+# Import Subscription Data
+```{r}
+subscriptions_dataset = read.csv("./init_data/subscriptions.csv")
+```
+
+# Structure and Summary
+```{r}
+str(subscriptions_dataset)
+summary(subscriptions_dataset)
+```
+
+How many customers have subscriptions:
+```{r}
+num_customers_with_sub = length(unique(subscriptions_dataset$customer_id))
+num_customers_with_sub
+```
+
+How many subs there are in total:
+```{r}
+num_subs = nrow(subscriptions_dataset)
+num_subs
+```
+
+
+Average number of subs per customer:
+```{r}
+num_subs_per_customer = data.frame(table(subscriptions_dataset$customer_id))
+names(num_subs_per_customer) = c("customer_id", "num_subs_total")
+```
+
+```{r}
+subscriptions_dataset = merge(x=subscriptions_dataset, y=num_subs_per_customer, by="customer_id", all.x = TRUE)
+```
+
+```{r}
+summary(subscriptions_dataset$num_subs_total)
+boxplot(subscriptions_dataset$num_subs_total)
+```
+
+# Proportions of active, cancelled and expired Subs
+```{r}
+str(subscriptions_dataset$status)
+summary(subscriptions_dataset$status)/nrow(subscriptions_dataset)
+```
+
+```{r}
+expired_subs = subset(subscriptions_dataset, status == "EXPIRED")
+nrow(expired_subs)
+```
+
+```{r}
+summary(expired_subs$expire_after_specific_number_of_charges)
+summary(as.factor(expired_subs$order_interval_frequency))/nrow(expired_subs)
+```
+
+```{r}
+# start date
+expired_subs$start_date = as.Date(strptime(expired_subs$created_at, "%Y-%m-%d"))
+expired_subs$start_hour = as.numeric(format(strptime(expired_subs$created_at, "%Y-%m-%d %H:%M:%S"), "%H"))
+# cancellation date
+expired_subs$end_date = as.Date(strptime(expired_subs$cancelled_at, "%Y-%m-%d"))
+expired_subs$end_hour = as.numeric(format(strptime(expired_subs$cancelled_at, "%Y-%m-%d %H:%M:%S"), "%H"))
+# difference in days
+expired_subs$sub_length_in_days = as.numeric(expired_subs$end_date-expired_subs$start_date)
+```
+
+
+Summary statistics for length of expired subscriptions:
+```{r}
+values = subset(expired_subs, !is.na(end_date))
+summary(values$sub_length_in_days)
+boxplot(values$sub_length_in_days, main="Boxplot: sub length in days for subs with status=EXPIRED")
+hist(values$sub_length_in_days, main="Histogram: sub length in days for subs with status=EXPIRED")
+```
+
+
+
+
+
+# Cancelled subs
+```{r}
+cancelled_subs = subset(subscriptions_dataset, status == "CANCELLED")
+str(cancelled_subs)
+```
+
+```{r}
+# start date
+cancelled_subs$start_date = as.Date(strptime(cancelled_subs$created_at, "%Y-%m-%d"))
+cancelled_subs$start_hour = as.numeric(format(strptime(cancelled_subs$created_at, "%Y-%m-%d %H:%M:%S"), "%H"))
+summary(cancelled_subs$start_date)
+summary(cancelled_subs$start_hour)
+# cancellation date
+cancelled_subs$end_date = as.Date(strptime(cancelled_subs$cancelled_at, "%Y-%m-%d"))
+cancelled_subs$end_hour = as.numeric(format(strptime(cancelled_subs$cancelled_at, "%Y-%m-%d %H:%M:%S"), "%H"))
+summary(cancelled_subs$end_date)
+summary(cancelled_subs$end_hour)
+# difference in days
+cancelled_subs$sub_length_in_days = as.numeric(cancelled_subs$end_date-cancelled_subs$start_date)
+```
+
+# Summary statistics for cancelled subs
+```{r}
+summary(cancelled_subs$sub_length_in_days)
+boxplot(cancelled_subs$sub_length_in_days, main="Boxplot: sub length in days for subs with status=CANCELLED")
+hist(cancelled_subs$sub_length_in_days, main="Histogram: sub length in days for subs with status=CANCELLED")
+```
+
+# Active subs
+```{r}
+active_subs = subset(subscriptions_dataset, status == "ACTIVE")
+str(active_subs)
+```
+
+```{r, transform dates}
+# start date
+active_subs$start_date = as.Date(strptime(active_subs$created_at, "%Y-%m-%d"))
+active_subs$start_hour = as.numeric(format(strptime(active_subs$created_at, "%Y-%m-%d %H:%M:%S"), "%H"))
+# difference in days
+active_subs$sub_length_in_days = as.numeric(as.Date("2020-04-30")-active_subs$start_date)
+```
+
+## Summary statistics for cancelled subs
+```{r}
+summary(active_subs$sub_length_in_days)
+boxplot(active_subs$sub_length_in_days, main="Boxplot: sub length in days for subs with status=ACTIVE")
+hist(active_subs$sub_length_in_days, main="Histogram: sub length in days for subs with status=ACTIVE")
+```
+
+
+
+
+# **CUSTOMER** level
+```{r}
+# aggregate(df$date2,by=list(df$id),max)
+subscriptions_dataset$created_at = as.Date(strptime(subscriptions_dataset$created_at, "%Y-%m-%d"))
+subscriptions_dataset$cancelled_at = as.Date(strptime(subscriptions_dataset$cancelled_at, "%Y-%m-%d"))
+customer_start_date = aggregate(subscriptions_dataset$created_at, by=list(subscriptions_dataset$customer_id), min)
+names(customer_start_date) = c("customer_id", "customer_start_date")
+customer_end_date = aggregate(subscriptions_dataset$cancelled_at, by=list(subscriptions_dataset$customer_id), max)
+names(customer_end_date) = c("customer_id", "customer_end_date")
+customer_start_end_date = merge(customer_start_date, customer_end_date, by="customer_id")
+customer_start_end_date$diff =as.numeric( customer_start_end_date$customer_end_date-customer_start_end_date$customer_start_date)
+values = subset(customer_start_end_date, !is.na(diff))
+```
+
+```{r}
+summary(values$diff)
+```
+
+

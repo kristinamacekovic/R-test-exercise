@@ -1,6 +1,6 @@
 ---
 author: Kristina Macekovic
-year: 2020
+date: May 2020
 title: "Lebesgue data scientist test exercise"
 output: 
   html_notebook: 
@@ -8,6 +8,7 @@ output:
     fig_width: 10
     toc: yes
 ---
+# Environment Setup
 ```{r}
 # Check working directory
 Sys.setlocale("LC_ALL","English")
@@ -22,7 +23,7 @@ orders_dataset = read.csv("./init_data/orders.csv")
 subscriptions_dataset = read.csv("./init_data/subscriptions.csv")
 ```
 
-# Datasets Summaries
+# Datasets Summaries & Transforms
 ## Dataset: Facebook Ads
 ### Structure
 ```{r}
@@ -48,6 +49,57 @@ facebook_ads_dataset$day = as.numeric(format(facebook_ads_dataset$date, "%d"))
 facebook_ads_dataset$weekday = weekdays(facebook_ads_dataset$date)
 summary(facebook_ads_dataset)
 ```
+
+## Dataset: Line items
+### Structure
+```{r}
+str(line_items_dataset)
+```
+
+### Summary
+```{r}
+summary(line_items_dataset)
+```
+
+This datasets seems to contain information on SKUs sold in a ecommerce shop that sells different types of chocolate. "Properties", "Grams", "Images" are all NULL.
+
+## Dataset: Orders
+### Structure
+```{r}
+str(orders_dataset)
+```
+
+### Summary
+```{r}
+summary(orders_dataset)
+```
+
+Holds data on orders done through the Shopify platform. *billing address* and *shipping address* are objects!
+
+
+
+## Dataset: Subscriptions
+
+
+
+### Structure
+```{r}
+str(subscriptions_dataset)
+```
+
+### Summary
+```{r}
+summary(subscriptions_dataset)
+```
+
+
+
+### Transforms
+```{r}
+
+```
+
+
 
 # Question 1: What is the best day of the week to increase advertising spending?
 Following metrics should be as high as possible:
@@ -120,17 +172,12 @@ summary(explanatory_min)
 tapply(facebook_ads_dataset$ROI_min, facebook_ads_dataset$weekday, summary)
 ```
 
-
-
-
-
 ```{r}
 with(facebook_ads_dataset, hist(scale(clicks)))
 with(facebook_ads_dataset, hist(scale(ctr)))
 with(facebook_ads_dataset, hist(scale(impressions)))
 with(facebook_ads_dataset, hist(scale(reach)))
 ```
-
 
 ```{r}
 str(as.factor(facebook_ads_dataset$weekday))
@@ -144,9 +191,6 @@ plot(fit)
 summary(fit)
 ```
 
-
-
-
 # Question 2: How did advertising spending change over time? (Is there a trend?)
 ```{r}
 facebook_ads_dataset$yearMonth = format(facebook_ads_dataset$date, "%Y-%m")
@@ -157,8 +201,11 @@ with(facebook_ads_dataset, tapply(spend, yearMonth, sd))
 boxplot(spend ~ day, data=facebook_ads_dataset, main="Spend ~ day")
 boxplot(spend ~ yearMonth, data=facebook_ads_dataset, main="Spend ~ month")
 boxplot(spend ~ year, data=facebook_ads_dataset, main="Spend ~ year")
-sub = subset(facebook_ads_dataset, yearMonth=="2019-01")
 plot(facebook_ads_dataset$date, facebook_ads_dataset$spend)
+subsetBeforeFeb2020 = subset(facebook_ads_dataset, yearMonth<="2020-01")
+plot(subsetBeforeFeb2020$date, subsetBeforeFeb2020$spend)
+subsetAfterFeb2020 = subset(facebook_ads_dataset, yearMonth > "2020-01")
+plot(subsetAfterFeb2020$date, subsetAfterFeb2020$spend)
 ```
 
 Linear trend:
@@ -203,6 +250,8 @@ summary(modelClicks)
 
 ## Plot of CPM through time:
 ```{r}
+# modelCPM = lm(cpm ~ daysSinceFirst, data = subBefore)
+# summary(modelCPM)
 modelCPM = lm(cpm ~ daysSinceFirst, data = facebook_ads_dataset)
 summary(modelCPM)
 plot(facebook_ads_dataset$date, facebook_ads_dataset$cpm)
@@ -221,46 +270,48 @@ plot(facebook_ads_dataset$daysSinceFirst, facebook_ads_dataset$impressions)
 abline(model, col="red")
 ```
 
-
-## Dataset: Line items
-### Structure
+## Spend vs CTR
 ```{r}
-str(line_items_dataset)
+plot(facebook_ads_dataset$spend, scale(facebook_ads_dataset$ctr))
+plot(facebook_ads_dataset$spend, scale(facebook_ads_dataset$cpm))
+plot(subBefore$spend, scale(subBefore$ctr))
+summary(lm(scale(ctr) ~ spend, data=subBefore))
+plot(facebook_ads_dataset$spend, facebook_ads_dataset$ctr)
+summary(lm(scale(ctr) ~ spend, data=facebook_ads_dataset))
+plot(facebook_ads_dataset$spend, facebook_ads_dataset$cpm)
+summary(lm(scale(cpm) ~ spend, data=facebook_ads_dataset))
 ```
 
-### Summary
+
+
+
+
+# Question 5: How long on average do users stay?
+
+How many customers have subscriptions:
 ```{r}
-summary(line_items_dataset)
+num_customers_with_sub = length(unique(subscriptions_dataset$customer_id))
+num_customers_with_sub
 ```
 
-This datasets seems to contain information on SKUs sold in a ecommerce shop that sells different types of chocolate. "Properties", "Grams", "Images" are all NULL.
-
-## Dataset: Orders
-### Structure
+How many subs there are in total:
 ```{r}
-str(orders_dataset)
+num_subs = nrow(subscriptions_dataset)
+num_subs
 ```
 
-### Summary
+
+Average number of subs per customer:
 ```{r}
-summary(orders_dataset)
+num_subs_per_customer = data.frame(table(subscriptions_dataset$customer_id))
+names(num_subs_per_customer) = c("customer_id", "num_subs_total")
 ```
 
-Holds data on orders done through the Shopify platform. *billing address* and *shipping address* are objects!
-## Dataset: Subscriptions
-### Structure
 ```{r}
-str(subscriptions_dataset)
+subscriptions_dataset = merge(x=subscriptions_dataset, y=num_subs_per_customer, by="customer_id", all.x = TRUE)
 ```
 
-### Summary
 ```{r}
-summary(subscriptions_dataset)
+summary(subscriptions_dataset$num_subs_total)
 ```
 
-Holds data on subsription services. Interesting fields to look at would be 
-
-- *cancellation_reason*
-- *cancellation_reason_comment*
-
-(Something simple like a wordcloud or more advanced like NLP analysis)
