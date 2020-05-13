@@ -210,6 +210,8 @@ plot(subsetAfterFeb2020$date, subsetAfterFeb2020$spend)
 
 Linear trend:
 ```{r}
+facebook_ads_dataset$daysSinceFirst = as.numeric(facebook_ads_dataset$date - as.Date("2019-01-01"))
+
 modelSpend = lm(spend ~ daysSinceFirst, data=facebook_ads_dataset)
 summary(modelSpend)
 
@@ -227,6 +229,8 @@ subBefore = subset(facebook_ads_dataset, daysSinceFirst <=250)
 subAfter = subset(facebook_ads_dataset, daysSinceFirst >250)
 #plot(facebook_ads_dataset$date, scale(facebook_ads_dataset$clicks), main="Clicks")
 #plot(facebook_ads_dataset$date, scale(facebook_ads_dataset$impressions), main="Impressions")
+plot(facebook_ads_dataset$date, scale(facebook_ads_dataset$ctr), main="CTR")
+plot(facebook_ads_dataset$date, scale(facebook_ads_dataset$cpm), main="CPM")
 plot(subBefore$date, scale(subBefore$ctr), main="CTR")
 plot(subBefore$date, scale(subBefore$cpc), main="CPC")
 plot(subAfter$date, scale(subAfter$ctr), main="CTR")
@@ -281,37 +285,3 @@ summary(lm(scale(ctr) ~ spend, data=facebook_ads_dataset))
 plot(facebook_ads_dataset$spend, facebook_ads_dataset$cpm)
 summary(lm(scale(cpm) ~ spend, data=facebook_ads_dataset))
 ```
-
-
-
-
-
-# Question 5: How long on average do users stay?
-
-How many customers have subscriptions:
-```{r}
-num_customers_with_sub = length(unique(subscriptions_dataset$customer_id))
-num_customers_with_sub
-```
-
-How many subs there are in total:
-```{r}
-num_subs = nrow(subscriptions_dataset)
-num_subs
-```
-
-
-Average number of subs per customer:
-```{r}
-num_subs_per_customer = data.frame(table(subscriptions_dataset$customer_id))
-names(num_subs_per_customer) = c("customer_id", "num_subs_total")
-```
-
-```{r}
-subscriptions_dataset = merge(x=subscriptions_dataset, y=num_subs_per_customer, by="customer_id", all.x = TRUE)
-```
-
-```{r}
-summary(subscriptions_dataset$num_subs_total)
-```
-

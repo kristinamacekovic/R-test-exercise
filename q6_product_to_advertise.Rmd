@@ -1,0 +1,331 @@
+---
+title: 'Question 6: Which product would you advertise the most to new users?'
+author: "Kristina Maceković"
+date: "5/7/2020"
+output: html_document
+---
+```{r, echo=FALSE}
+# Check working directory
+Sys.setlocale("LC_ALL","English")
+getwd()
+#setwd(paste(getwd(), "/Documents/jobs/jobs2020/lebesgue-test-exercise", sep=""))
+```
+
+```{r, import data, echo=FALSE}
+line_items_dataset = read.csv("./init_data/line_items.csv")
+subscriptions_dataset = read.csv("./init_data/subscriptions.csv")
+```
+
+```{r, echo=FALSE}
+str(line_items_dataset)
+str(subscriptions_dataset)
+```
+
+# What is the most common price for each product?
+
+Looking at the subscription data:
+```{r}
+with(subscriptions_dataset, tapply(price, product_title, summary))
+#product_price_per_quantity_item = aggregate(line_items_dataset$price, by=list(line_items_dataset$product_title, line_items_dataset$quantity), mean)
+#names(product_price_per_quantity_item) = c("product", "quantity", "price")
+```
+
+Looking at the line items data:
+```{r}
+with(line_items_dataset, tapply(price, product_title, summary))
+```
+
+Also looked on a per-quantity, per-frequency basis, but didn't have a difference.
+
+The most common prices:
+
+- dark chocolate: 40$
+- milk chocolate: 33$
+- white chocolate: 33$
+
+# What is the most common product in active subs?
+
+In all active subs:
+```{r, echo=FALSE}
+active_subs = subset(subscriptions_dataset, status == "ACTIVE")
+tbl = with(active_subs, data.frame(table(product_title)/nrow(active_subs)))
+tbl = tbl[order(-tbl$Freq), ]
+tbl
+```
+
+In active subs longer than 2M:
+```{r, echo=FALSE}
+# define length of sub
+active_subs$sub_length_in_days = as.numeric(as.Date("2020-04-30") - as.Date(format(strptime(active_subs$created_at, "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")))
+long_active_subs = subset(active_subs, sub_length_in_days > 60)
+tbl = with(long_active_subs, data.frame(table(product_title)/nrow(long_active_subs)))
+tbl = tbl[order(-tbl$Freq), ]
+tbl
+```
+
+In active subs longer than 6M:
+```{r, echo=FALSE}
+# define length of sub
+long_active_subs = subset(active_subs, sub_length_in_days > 180)
+tbl = with(long_active_subs, data.frame(table(product_title)/nrow(long_active_subs)))
+tbl = tbl[order(-tbl$Freq), ]
+tbl
+```
+
+Prices in long active subs:
+```{r}
+mn = with(long_active_subs, aggregate(price, by=list(product_title), min))
+mx = with(long_active_subs, aggregate(price, by=list(product_title), max))
+avg = with(long_active_subs, aggregate(price, by=list(product_title), mean))
+med = with(long_active_subs, aggregate(price, by=list(product_title), median))
+mn
+mx
+avg
+med
+```
+
+
+# What is the least common product in cancelled or expired subs?
+```{r, echo=FALSE}
+cancelled_subs = subset(subscriptions_dataset, status == "CANCELLED")
+tbl = with(cancelled_subs, data.frame(table(product_title)/nrow(cancelled_subs)))
+tbl = tbl[order(-tbl$Freq), ]
+tbl
+```
+
+# What are the reasons for cancellation?
+```{r}
+all_reasons = data.frame(table(cancelled_subs$cancellation_reason)/nrow(cancelled_subs))
+
+# milk
+milk = subset(cancelled_subs, product_title=="Milk Chocolate 10.00% Off Auto renew")
+milk_reasons = data.frame(with(milk, table(cancellation_reason)/nrow(milk)))
+names(milk_reasons) = c("reason", "milk_freq")
+
+# dark
+dark = subset(cancelled_subs, product_title=="Dark Chocolate 10.00% Off Auto renew")
+dark_reasons = data.frame(with(dark, table(cancellation_reason)/nrow(dark)))
+names(dark_reasons) = c("reason", "dark_freq")
+
+# white
+white = subset(cancelled_subs, product_title=="White Chocolate 10.00% Off Auto renew")
+white_reasons = data.frame(with(white, table(cancellation_reason)/nrow(white)))
+names(white_reasons) = c("reason", "white_freq")
+
+reasons = merge(milk_reasons, dark_reasons, by="reason")
+reasons = merge(reasons, white_reasons, by="reason")
+```
+
+```{r}
+reasons[order(-reasons$milk_freq),]
+```
+
+# Which variant is the most popular in long active subs?
+```{r}
+df = data.frame(table(long_active_subs$variant_title))
+df = df[order(-df$Freq),]
+df
+```
+
+# Which variant in milk chocolate is the most popular?
+```{r}
+active_milk = subset(active_subs, product_title == "Milk Chocolate 10.00% Off Auto renew")
+df = data.frame(table(active_milk$variant_title))
+df = df[order(-df$Freq), ]
+df
+```
+
+# Which variant in dark chocolate is the most popular?
+```{r}
+active_dark = subset(active_subs, product_title == "Dark Chocolate 10.00% Off Auto renew")
+df = data.frame(table(active_dark$variant_title))
+df = df[order(-df$Freq), ]
+df
+```
+
+# What is the most common cancelled variant?
+```{r}
+df = data.frame(table(cancelled_subs$variant_title))
+df = df[order(-df$Freq),]
+df
+```
+
+
+# Ratio of active over cancelled subs for each product
+```{r}
+long_active_subs = subset(active_subs, sub_length_in_days > 60)
+cancelled_subs$sub_length_in_days = as.numeric(as.Date(format(strptime(cancelled_subs$cancelled_at, "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")) - as.Date(format(strptime(cancelled_subs$created_at, "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")))
+long_cancelled_subs = subset(cancelled_subs, sub_length_in_days > 60)
+
+
+
+num_active = data.frame(table(long_active_subs$product_title)/nrow(long_active_subs))
+names(num_active) = c("Product", "num_active")
+num_cancelled = data.frame(table(long_cancelled_subs$product_title)/nrow(long_cancelled_subs))
+names(num_cancelled) = c("Product", "num_cancelled")
+ratio_active_cancelled_per_product = merge(num_active, num_cancelled, by="Product")
+ratio_active_cancelled_per_product$ratio = ratio_active_cancelled_per_product$num_active/ratio_active_cancelled_per_product$num_cancelled
+```
+
+```{r}
+ratio_active_cancelled_per_product[order(-ratio_active_cancelled_per_product$ratio),]
+```
+
+
+# The same, but for variants
+```{r}
+num_active = data.frame(table(long_active_subs$variant_title)/nrow(long_active_subs))
+names(num_active) = c("Variant", "num_active")
+
+num_cancelled = data.frame(table(long_cancelled_subs$variant_title)/nrow(long_cancelled_subs))
+names(num_cancelled) = c("Variant", "num_cancelled")
+
+ratio_active_cancelled_per_variant = merge(num_active, num_cancelled, by="Variant")
+
+ratio_active_cancelled_per_variant$ratio = ratio_active_cancelled_per_variant$num_active/ratio_active_cancelled_per_variant$num_cancelled
+```
+
+```{r}
+ratio_active_cancelled_per_variant[order(-ratio_active_cancelled_per_product$ratio),]
+```
+
+## Reasons for cancellation in this sample
+```{r}
+# milk
+milk = subset(long_cancelled_subs, product_title=="Milk Chocolate 10.00% Off Auto renew")
+milk_reasons = data.frame(with(milk, table(cancellation_reason)/nrow(milk)))
+names(milk_reasons) = c("reason", "milk_freq")
+
+# dark
+dark = subset(long_cancelled_subs, product_title=="Dark Chocolate 10.00% Off Auto renew")
+dark_reasons = data.frame(with(dark, table(cancellation_reason)/nrow(dark)))
+names(dark_reasons) = c("reason", "dark_freq")
+
+# white
+white = subset(long_cancelled_subs, product_title=="White Chocolate 10.00% Off Auto renew")
+white_reasons = data.frame(with(white, table(cancellation_reason)/nrow(white)))
+names(white_reasons) = c("reason", "white_freq")
+
+reasons = merge(milk_reasons, dark_reasons, by="reason")
+reasons = merge(reasons, white_reasons, by="reason")
+```
+
+```{r}
+reasons[order(-reasons$milk_freq),]
+```
+
+
+
+```{r}
+variant_cancellation_reason = data.frame(with(long_cancelled_subs, table(variant_title, cancellation_reason)/nrow(long_cancelled_subs)))
+variant_cancellation_reason[order(-variant_cancellation_reason$Freq),]
+doesnt_like = subset(variant_cancellation_reason, cancellation_reason == "I don't like the product" | cancellation_reason=="I want a different product or variety" | cancellation_reason=="This is too expensive")
+doesnt_like[order(-doesnt_like$Freq),]
+```
+
+# "Other reason" Analysis
+```{r}
+reason_description = subscriptions_dataset$cancellation_reason_comment
+reason_description = reason_description[reason_description != "NULL" &  reason_description != ""]
+str(reason_description)
+all_together = paste(reason_description, collapse = " ")
+#all_together
+lowercase = tolower(all_together)
+#lowercase
+```
+
+```{r}
+# Install
+install.packages("tm")  # for text mining
+install.packages("SnowballC") # for text stemming
+install.packages("wordcloud") # word-cloud generator 
+install.packages("RColorBrewer") # color palettes
+# Load
+library("tm")
+library("SnowballC")
+library("wordcloud")
+library("RColorBrewer")
+```
+
+
+```{r}
+docs <- Corpus(VectorSource(lowercase))
+```
+
+```{r}
+#inspect(docs)
+toSpace <- content_transformer(function (x , pattern ) gsub(pattern, "", x))
+docs <- tm_map(docs, toSpace, "\n")
+# Remove english common stopwords
+docs <- tm_map(docs, removeWords, stopwords("english"))
+# Remove punctuations
+docs <- tm_map(docs, removePunctuation)
+# Eliminate extra white spaces
+docs <- tm_map(docs, stripWhitespace)
+```
+```{r}
+inspect(docs)
+```
+
+
+
+```{r}
+dtm <- TermDocumentMatrix(docs)
+m <- as.matrix(dtm)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v)
+head(d, 10)
+```
+
+Wordcloud
+```{r}
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words=200, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+Frequent words:
+```{r}
+findFreqTerms(dtm, lowfreq = 10)
+```
+
+Barplot of the most frequent words:
+```{r}
+barplot(d[1:10,]$freq, las = 2, names.arg = d[1:10,]$word
+        , main ="Most frequent words",
+        ylab = "Word frequencies")
+```
+
+```{r}
+like_reasons = reason_description[grepl("like", reason_description, ignore.case = TRUE)]
+head(like_reasons, 10)
+```
+```{r}
+product_reasons = reason_description[grepl("product", reason_description, ignore.case = TRUE)]
+head(product_reasons, 10)
+```
+
+```{r}
+sub_reasons = reason_description[grepl("subscription", reason_description, ignore.case = TRUE)]
+head(sub_reasons, 10)
+```
+
+```{r}
+choco_reasons = reason_description[grepl("chocolate", reason_description, ignore.case = TRUE)]
+head(choco_reasons, 10)
+```
+
+```{r}
+order_reasons = reason_description[grepl("order", reason_description, ignore.case = TRUE)]
+head(order_reasons, 10)
+```
+
+
+```{r}
+choco_or_not_like = subscriptions_dataset[grepl("don't like", subscriptions_dataset$cancellation_reason_comment, ignore.case = TRUE),]
+df = data.frame(table(choco_or_not_like$variant_title)/nrow(choco_or_not_like))
+df[order(-df$Freq),]
+```
+
+

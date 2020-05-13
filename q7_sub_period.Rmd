@@ -1,0 +1,36 @@
+---
+title: 'Question 7: Which subscription period would you put as default on the website?'
+author: "Kristina Maceković"
+date: "5/8/2020"
+output: html_document
+---
+
+```{r, echo=FALSE}
+# Check working directory
+Sys.setlocale("LC_ALL","English")
+getwd()
+#setwd(paste(getwd(), "/Documents/jobs/jobs2020/lebesgue-test-exercise", sep=""))
+```
+
+```{r, import data, echo=FALSE}
+subscriptions_dataset = read.csv("./init_data/subscriptions.csv")
+cancelled_subs = subset(subscriptions_dataset, status == "CANCELLED")
+active_subs = subset(subscriptions_dataset, status == "ACTIVE")
+cancelled_subs$sub_length_in_days = as.numeric(as.Date(format(strptime(cancelled_subs$cancelled_at, "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")) - as.Date(format(strptime(cancelled_subs$created_at, "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")))
+active_subs$sub_length_in_days = as.numeric(as.Date("2020-04-30") - as.Date(format(strptime(active_subs$created_at, "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")))
+
+active_subs_over_2m = subset(active_subs, sub_length_in_days > 60)
+cancelled_subs_over_2m = subset(cancelled_subs, sub_length_in_days > 60)
+```
+
+# Ratio
+```{r}
+freq_in_active = data.frame(table(as.factor(active_subs_over_2m$order_interval_frequency))/nrow(active_subs_over_2m))
+names(freq_in_active) = c("Period", "freq_in_active")
+freq_in_cancelled = data.frame(table(as.factor(cancelled_subs_over_2m$order_interval_frequency))/nrow(cancelled_subs_over_2m))
+names(freq_in_cancelled) = c("Period", "freq_in_cancelled")
+freq_period = merge(freq_in_active, freq_in_cancelled, by="Period")
+freq_period$ratio = freq_period$freq_in_active/freq_period$freq_in_cancelled
+freq_period[order(-freq_period$ratio),]
+```
+

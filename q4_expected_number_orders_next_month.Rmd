@@ -1,0 +1,152 @@
+---
+title: 'Question 4: Expected number of orders next month?'
+author: "Kristina Maceković"
+date: "5/8/2020"
+output: html_document
+---
+```{r, echo=FALSE}
+# Check working directory
+Sys.setlocale("LC_ALL","English")
+getwd()
+#setwd(paste(getwd(), "/Documents/jobs/jobs2020/lebesgue-test-exercise", sep=""))
+```
+
+```{r, import data, echo=FALSE}
+line_items_dataset = read.csv("./init_data/line_items.csv")
+orders_dataset = read.csv("./init_data/orders.csv")
+subscriptions_dataset = read.csv("./init_data/subscriptions.csv")
+```
+
+```{r, new variables}
+subscriptions_dataset$sub_length_in_days = as.numeric(
+as.Date(format(strptime(subscriptions_dataset$cancelled_at, "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d")) -
+as.Date(format(strptime(subscriptions_dataset$created_at, "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d"))
+)
+subscriptions_dataset$yearMonth = format(strptime(subscriptions_dataset$created_at, "%Y-%m-%d %H:%M:%S"), "%Y-%m")
+```
+
+# Number of subs cancelled within the same month -- through the period
+```{r}
+cancelled_in_same_month = subset(subscriptions_dataset, status == "CANCELLED" & sub_length_in_days <=31)
+non_cancelled_subs = subset(subscriptions_dataset, is.na(sub_length_in_days) | sub_length_in_days>31)
+```
+
+```{r, number cancelled in same month per month}
+df = data.frame(table(cancelled_in_same_month$yearMonth))
+names(df) = c("Month", "Num_cancelled_within_31_days")
+#df
+
+df2 = data.frame(table(non_cancelled_subs$yearMonth))
+names(df2) = c("Month", "Num_not_cancelled_within_31_days")
+#df2
+
+df3 = data.frame(table(subscriptions_dataset$yearMonth))
+names(df3) = c("Month", "Num_total")
+#df3
+
+cancelled_stats = merge(df, df2, by="Month")
+cancelled_stats = merge(cancelled_stats, df3, by="Month")
+cancelled_stats$ratio_cancelled = cancelled_stats$Num_cancelled_within_31_days/cancelled_stats$Num_total
+cancelled_stats$ratio_live = cancelled_stats$Num_not_cancelled_within_31_days/cancelled_stats$Num_total
+cancelled_stats
+```
+
+
+```{r, barplot #1}
+nc = barplot(cancelled_stats$ratio_cancelled, names.arg = cancelled_stats$Month, main="Ratio of subscriptions cancelled within 31 days / month")
+
+barplot(cancelled_stats$ratio_live, names.arg = cancelled_stats$Month, main="Ratio of subscriptions still live after 31 days / month")
+```
+
+```{r, summary statistics for the last 12 M}
+ratios = cancelled_stats$ratio_cancelled
+summary(tail(ratios, 12))
+```
+
+# After how long on average are 3M cancelled?
+```{r}
+subs_3M = subset(subscriptions_dataset, order_interval_frequency==3)
+summary(subs_3M$sub_length_in_days)
+table(subs_3M$status)/nrow(subs_3M)
+```
+
+# After how long on average are 2M cancelled?
+```{r}
+subs_2M = subset(subscriptions_dataset, order_interval_frequency==2)
+summary(subs_2M$sub_length_in_days)
+table(subs_2M$status)/nrow(subs_2M)
+```
+
+# After how long on average are 1M cancelled?
+```{r}
+subs_1M = subset(subscriptions_dataset, order_interval_frequency==1)
+summary(subs_1M$sub_length_in_days)
+table(subs_1M$status)/nrow(subs_1M)
+```
+
+
+# Is there a seasonality in "EXPIRED" subs?
+```{r}
+expired = subset(subscriptions_dataset, status=="EXPIRED")
+df4 = data.frame(table(expired$yearMonth))
+names(df4) = c("Month", "Freq")
+df4
+```
+
+# Distribution of number of products per customer
+```{r}
+df5 = data.frame(with(non_cancelled_subs, table(customer_id)))
+names(df5) = c("customer_id", "Freq")
+summary(df5$Freq)
+```
+
+# Order approach
+```{r}
+#install.packages("lubridate")
+library(lubridate)
+orders_dataset$yearMonth = format(strptime(orders_dataset$scheduled_at, "%Y-%m-%d %H:%M:%S"), "%Y-%m")
+months = seq(0, 15)
+```
+
+## Number of orders per person per month
+
+```{r}
+#install.packages("plyr")
+library(plyr)
+counts = count(orders_dataset, vars=c("yearMonth"))
+barplot(counts$freq, names.arg = counts$yearMonth, main="Number of orders, i.e. customers per month")
+plot(counts$freq, type="o", main="Number of orders, i.e. customers per month")
+abline(570.083, 143.607, col="red")
+```
+
+```{r}
+months = seq(0, 15)
+months
+```
+
+```{r}
+df = data.frame(counts$yearMonth, months)
+names(df) = c("yearMonth", "months_since_beginning")
+orders_dataset = merge(orders_dataset, df, by="yearMonth", all.x = TRUE)
+```
+
+```{r}
+counts = merge(counts, df, by="yearMonth", all.x = TRUE)
+```
+
+
+## Linear model
+```{r}
+model = lm(freq ~ months_since_beginning, data = counts[1:15,])
+summary(model)
+months_since_beginning = c(15)
+predictions = predict.lm(model, newdata = data.frame(months_since_beginning))
+```
+
+```{r}
+predictions
+months_since_beginning = c(16)
+predition_1m_from_now = predict.lm(model, newdata = data.frame(months_since_beginning))
+summary(predition_1m_from_now)
+```
+

@@ -57,7 +57,7 @@ boxplot(subscriptions_dataset$num_subs_total)
 # Proportions of active, cancelled and expired Subs
 ```{r}
 str(subscriptions_dataset$status)
-summary(subscriptions_dataset$status)/nrow(subscriptions_dataset)
+table(subscriptions_dataset$status)/nrow(subscriptions_dataset)
 ```
 
 ```{r}
@@ -153,11 +153,17 @@ subscriptions_dataset$created_at = as.Date(strptime(subscriptions_dataset$create
 subscriptions_dataset$cancelled_at = as.Date(strptime(subscriptions_dataset$cancelled_at, "%Y-%m-%d"))
 customer_start_date = aggregate(subscriptions_dataset$created_at, by=list(subscriptions_dataset$customer_id), min)
 names(customer_start_date) = c("customer_id", "customer_start_date")
+
 customer_end_date = aggregate(subscriptions_dataset$cancelled_at, by=list(subscriptions_dataset$customer_id), max)
 names(customer_end_date) = c("customer_id", "customer_end_date")
 customer_start_end_date = merge(customer_start_date, customer_end_date, by="customer_id")
 customer_start_end_date$diff =as.numeric( customer_start_end_date$customer_end_date-customer_start_end_date$customer_start_date)
+
 values = subset(customer_start_end_date, !is.na(diff))
+values_na = subset(customer_start_end_date, is.na(diff))
+values_na$customer_end_date = as.Date("2020-04-30")
+values_na$diff =as.numeric( values_na$customer_end_date-values_na$customer_start_date)
+values = rbind(values, values_na)
 ```
 
 ```{r}

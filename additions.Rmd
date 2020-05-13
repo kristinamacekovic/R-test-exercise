@@ -1,0 +1,164 @@
+---
+title: "Additional_stuff"
+author: "Kristina Maceković"
+date: "5/12/2020"
+output: html_document
+---
+
+```{r, echo=FALSE}
+# Check working directory
+Sys.setlocale("LC_ALL","English")
+getwd()
+#setwd(paste(getwd(), "/Documents/jobs/jobs2020/lebesgue-test-exercise", sep=""))
+```
+
+# Is there a time of day when most subs are created or cancelled?
+```{r, import data, echo=FALSE}
+subscriptions_dataset = read.csv("./init_data/subscriptions.csv")
+subscriptions_dataset$sub_created_h = 
+    format(strptime(subscriptions_dataset$created_at, "%Y-%m-%d %H:%M:%S"), "%H")
+subscriptions_dataset$sub_cancelled_h = 
+    format(strptime(subscriptions_dataset$cancelled_at, "%Y-%m-%d %H:%M:%S"), "%H")
+```
+
+## Created
+```{r}
+when_created = data.frame(table(subscriptions_dataset$sub_created_h)/nrow(subscriptions_dataset))
+names(when_created) = c("Hour", "Percent of all subs")
+when_created[order(-when_created$`Percent of all subs`),]
+barplot(when_created$`Percent of all subs`, names.arg = when_created$Hour, main="When are subs created during the day?")
+```
+
+
+## Cancelled
+```{r}
+when_cancelled = data.frame(table(subscriptions_dataset$sub_cancelled_h)/nrow(subscriptions_dataset))
+names(when_cancelled) = c("Hour", "Percent of all subs")
+when_cancelled[order(-when_cancelled$`Percent of all subs`),]
+barplot(when_cancelled$`Percent of all subs`, names.arg = when_created$Hour, main="When are subs cancelled during the day?")
+```
+
+I don't know if this is a reflection of the system or customer behaviour, but there are definitely times of the day when subs are created and cancelled more!
+
+
+
+# Address analysis
+
+```{r, import data, echo=FALSE}
+orders_dataset = read.csv("./init_data/orders.csv")
+```
+
+```{r}
+#install.packages("jsonlite")
+library(jsonlite)
+```
+
+```{r}
+orders_with_address = subset(orders_dataset, shipping_address != "NULL")
+address = jsonlite::stream_in(textConnection(gsub("\\n", "", orders_with_address$shipping_address)))
+```
+
+```{r}
+orders_with_address = cbind(orders_with_address, address)
+```
+
+```{r}
+summary(address)
+str(address)
+```
+
+```{r}
+table(as.factor(address$country))
+```
+
+All orders are from the US.
+
+
+```{r}
+avg_sub_pr_province = aggregate(total_price~province, data=orders_with_address,mean)
+unique_customers = unique(orders_with_address[c("customer_id", "country", "province")])
+state_freq = data.frame(table(as.factor(unique_customers$province))/nrow(unique_customers))
+state_freq = state_freq[order(state_freq$Freq),]
+state_freq[order(-state_freq$Freq),]
+dev.new(height=400,noRStudioGD = TRUE)
+barplot(tail(state_freq$Freq,10), horiz = TRUE, names.arg = tail(state_freq$Var1, 10))
+```
+
+```{r}
+names(state_freq) = c("province", "freq")
+state_freq = merge(state_freq, avg_sub_pr_province, by="province")
+state_freq$freq = state_freq$freq*100
+# freq is for unique customers in the table!
+names(state_freq) =c("province", "freq", "average_total_price_of_order")
+```
+
+```{r paged.print=FALSE}
+#install.packages("ggplot2")
+library(ggplot2)
+```
+
+
+```{r}
+ggplot(state_freq, aes(freq,average_total_price_of_order)) + geom_text(aes(label=province))
+```
+
+
+
+# Cancellation Rate per Province analysis
+```{r}
+unique_customers = unique(orders_with_address[c("customer_id", "province")])
+subs = merge(subscriptions_dataset, unique_customers, by="customer_id", all.x=TRUE)
+```
+
+## Total per province
+```{r}
+total_per_province = data.frame(table(subs$province))
+names(total_per_province) = c("province", "freq_total")
+```
+
+## Status per province
+```{r}
+install.packages("reshape")
+library(reshape)
+```
+
+
+```{r}
+cancelled = data.frame(table(subs$province, subs$status))
+names(cancelled) = c("province", "status", "freq_status")
+cancelled = cast(cancelled, province  ~ status)
+```
+
+```{r}
+cancelled = merge(cancelled, total_per_province, by="province")
+```
+
+```{r}
+cancelled$ACTIVE = (cancelled$ACTIVE/cancelled$freq_total)*100
+cancelled$CANCELLED = (cancelled$CANCELLED/cancelled$freq_total)*100
+cancelled$EXPIRED = (cancelled$EXPIRED/cancelled$freq_total)*100
+```
+
+## Avg sub price per province
+```{r}
+price_per_province = aggregate(subs$price, by=list(subs$province), data=subs, mean)
+names(price_per_province) = c("province", "avg_price_of_sub")
+cancelled = merge(cancelled, price_per_province, by="province", all.x=TRUE)
+```
+
+## Most frequent period
+```{r}
+mode_period = aggregate(as.factor(subs$order_interval_frequency), by=list(subs$province), function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+})
+names(mode_period) = c("province", "period_mode")
+cancelled = merge(cancelled, mode_period, by="province", all.x=TRUE)
+```
+
+```{r}
+write.csv(cancelled, "data_per_province.csv")
+```
+
+
+
